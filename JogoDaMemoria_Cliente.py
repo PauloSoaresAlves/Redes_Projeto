@@ -1,6 +1,8 @@
+from email import message
 import os
 import sys
 import time
+import threading
 import random
 import socket
 
@@ -240,6 +242,23 @@ tabuleiro = novoTabuleiro(dim)
 # Cria um novo placar zerado
 placar = novoPlacar(nJogadores)
 '''
+def client_recieve(client):
+    id = ""
+    while True:
+        try:
+            message = client.recv(1024).decode('utf-8')
+            print(message)
+        except:
+            print("Ocorreu um erro!")
+            client.close()
+            break
+
+def client_send(client, id):
+    while True:
+        message = f'{id}: {input("")}'
+        client.send(message.encode('utf-8'))
+
+
 
 host = input("Digite o IP do servidor: ")
 port = int(input("Digite a porta do servidor: "))
@@ -248,10 +267,11 @@ tcp_client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 dest = (host, port)
 tcp_client.connect(dest)
 print("Conectado ao servidor em ", dest)
-print("Aguardando os outros jogadores se conectarem...")
-tcp_client.sendall(b"Hello, world")
-data = tcp_client.recv(1024)
-print(data.decode('utf-8'))
+rec_thread = threading.Thread(target=client_recieve, args=(tcp_client,))
+rec_thread.start()
+send_thread = threading.Thread(target=client_send, args=(tcp_client, id))
+send_thread.start()
+
 
 
 '''

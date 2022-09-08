@@ -2,6 +2,7 @@ from ipaddress import ip_address
 import os
 import sys
 import time
+import threading
 import types
 import random
 import socket
@@ -220,82 +221,78 @@ def leCoordenada(dim):
 
     return (i, j)
 
-def accept_wrapper(sock):
-    conn, addr = sock.accept()  # Should be ready to read
-    print("Accepted connection from", addr)
-    conn.setblocking(False)
-    data = types.SimpleNamespace(addr=addr, inb=b"", outb=b"")
-    events = selectors.EVENT_READ | selectors.EVENT_WRITE
-    sel.register(conn, events, data=data)
+# Função padrão que manda uma mensagem para todos os clientes
+def sendMessageToClients(message,clients):
+    for client in clients:
+        client.send(message.encode('utf-8'))
 
-def service_connection(key, mask):
-    sock = key.fileobj
-    data = key.data
-    if mask & selectors.EVENT_READ:
-        recv_data = sock.recv(1024)  # Should be ready to read
-        if recv_data:
-            data.outb += recv_data
-        else:
-            print("Closing connection to", data.addr)
-            sel.unregister(sock)
-            sock.close()
-    if mask & selectors.EVENT_WRITE:
-        if data.outb:
-            print("echoing", repr(data.outb), "to", data.addr)
-            sent = sock.send(data.outb)  # Should be ready to write
-            data.outb = data.outb[sent:]
-
-##
-# Parametros da partida
-##
-
-# Tamanho (da lateral) do tabuleiro. NECESSARIAMENTE PAR E MENOR QUE 10!
-dim = int(input("Digite o tamanho do tabuleiro (par e menor que 10): "))
-
-# Numero de jogadores
-nJogadores = int(input("Digite o numero de jogadores: "))
-
-# Numero total de pares de pecas
-totalDePares = dim**2 / 2
-
-##
-# Programa principal
-##
-
-# Cria um novo tabuleiro para a partida
-tabuleiro = novoTabuleiro(dim)
-
-# Cria um novo placar zerado
-placar = novoPlacar(nJogadores)
-
-
-hostname=socket.gethostname()   
-ip_address=socket.gethostbyname(hostname)
-port = 42068
-
-print("Server open on port: ", port)
-print("Server IP: " + str(ip_address) + ":" + str(port))
-tpc_server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-sel = selectors.DefaultSelector()
-tpc_server.bind((ip_address, port))
-tpc_server.listen(nJogadores)
-tpc_server.setblocking(False)
-sel.register(tpc_server, selectors.EVENT_READ, data=None)
-
-try:
+# Função que recebe a mensagem do cliente e retorna a para todos os outros clientes
+def clientThread(conn,address,clients: list, ids: list):
+    index = clients.index(conn)
+    conn.send(f"Bem vindo ao jogo, jogador {ids[index]}!".encode('utf-8'))
     while True:
-        events = sel.select(timeout=None)
-        for key, mask in events:
-            if key.data is None:
-                accept_wrapper(key.fileobj)
-            else:
-                service_connection(key, mask)
-except KeyboardInterrupt:
-    print("Caught keyboard interrupt, exiting")
-finally:
-    sel.close()
+        try:
+            message = conn.recv(1024)
+            message_to_send = f"Jogador {ids[index]}: {message.decode('utf-8')}"
+            print(message_to_send)
+            sendMessageToClients(message_to_send,clients)
+        except:
+            sendMessageToClients(f"Jogador {ids[index]} Deixou o jogo!",clients)
+            clients.remove(conn)
+            ids.remove(ids[index])
+            conn.close()       
+            break
+
+def receive(server : socket.socket, clients: list, ids: list, max_clients: int):
+    while len(clients) < max_clients:
+        print(f"Aguardando conexões... {len(clients)}/{max_clients}")
+        conn, address = server.accept()
+        clients.append(conn)
+        ids.append(len(clients))
+        print(f"Conectado com {address}")
+        sendMessageToClients(f"Jogador {ids[len(ids)-1]} entrou no jogo!",clients)
+        thread = threading.Thread(target=clientThread, args=(conn,address,clients,ids))
+        thread.start()
+           
+def main():
+    ##
+    # Parametros da partida
+    ##
+
+    # Tamanho (da lateral) do tabuleiro. NECESSARIAMENTE PAR E MENOR QUE 10!
+    dim = int(input("Digite o tamanho do tabuleiro (par e menor que 10): "))
+
+    # Numero de jogadores
+    nJogadores = int(input("Digite o numero de jogadores: "))
+
+    # Numero total de pares de pecas
+    totalDePares = dim**2 / 2
+
+    ##
+    # Programa principal
+    ##
+
+    # Cria um novo tabuleiro para a partida
+    tabuleiro = novoTabuleiro(dim)
+
+    # Cria um novo placar zerado
+    placar = novoPlacar(nJogadores)
 
 
+    hostname=socket.gethostname()   
+    ip_address=socket.gethostbyname(hostname)
+    print(f"IP do servidor: {ip_address}")
+    port = 25542
+
+    print(f"Servidor aberto na porta: {port}")
+    tpc_server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    tpc_server.bind((ip_address, port))
+    tpc_server.listen(nJogadores)
+    client_list = []
+    ids = []
+    receive(tpc_server,client_list,ids,nJogadores)
+
+main()
 
 '''
 # Partida continua enquanto ainda ha pares de pecas a 
