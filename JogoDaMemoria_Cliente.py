@@ -1,4 +1,5 @@
 from email import message
+from lib2to3.pgen2.token import RPAR
 import os
 import sys
 import time
@@ -192,13 +193,12 @@ def imprimeStatus(tabuleiro, placar, vez):
 
 # Le um coordenadas de uma peca. Retorna uma tupla do tipo (i, j)
 # em caso de sucesso, ou False em caso de erro.
-def leCoordenada(dim):
+def leCoordenada(dim,entry):
 
-    user_input = input("Especifique uma peca: ")
 
     try:
-        i = int(user_input.split(' ')[0])
-        j = int(user_input.split(' ')[1])
+        i = int(entry.split(' ')[0])
+        j = int(entry.split(' ')[1])
     except ValueError:
         print("Coordenadas invalidas! Use o formato \"i j\" (sem aspas),")
         print("onde i e j sao inteiros maiores ou iguais a 0 e menores que {0}".format(dim))
@@ -242,23 +242,74 @@ tabuleiro = novoTabuleiro(dim)
 # Cria um novo placar zerado
 placar = novoPlacar(nJogadores)
 '''
-def client_recieve(client):
-    id = ""
+class client_lock():
+    def __init__(self):
+        self.gameStarted = False
+        self.turn = -1
+        self.tabuleiro = []
+        self.placar = []
+        self.myId = 0
+        
+
+def client_recieve(client, client_lock: client_lock):
     while True:
-        try:
-            message = client.recv(1024).decode('utf-8')
-            print(message)
-        except:
-            print("Ocorreu um erro!")
-            client.close()
-            break
+        #try:
+            message = client.recv(1024).decode('utf-8').split("|")
+            if message:
+                for data in message:
+                    if data != "":
+                        if data[0] == "0":
+                            print(data[1:])
+                        elif data[0] == "1":
+                            tabuleiro, placar, turn = data[1:].split(";")
+                            tabuleiro = decodeArray(tabuleiro)
+                            client_lock.tabuleiro = tabuleiro
+                            client_lock.placar = decodeArray(placar)
+                            client_lock.turn = int(turn)
+                            imprimeStatus(client_lock.tabuleiro,client_lock.placar, client_lock.turn)
+                        elif data[0] == "2":
+                            client_lock.gameStarted = True
+                        elif data[0] == "3":
+                            client_lock.myId = int(data[1:])
+                                           
+        #except:
+        #    print("Ocorreu um erro!")
+        #    client.close()
+        #    break
 
-def client_send(client, id):
-    while True:
-        message = f'{id}: {input("")}'
-        client.send(message.encode('utf-8'))
+def client_send(client, client_lock: client_lock):
+    while True: 
+        message = f'{input("")}'     
+        if not client_lock.gameStarted:  
+            client.send(message.encode('utf-8'))
+        elif client_lock.gameStarted and client_lock.turn == client_lock.myId:
+            coordenadas = leCoordenada(len(client_lock.tabuleiro),message)
+            if(not coordenadas):
+                pass
+            else:
+                i, j = coordenadas
+                if not (client_lock.tabuleiro[i][j] != "-" or client_lock.tabuleiro[i][j]  < 0):
+                    print("Essa peça já foi removida ou aberta!")
+                else:
+                    client.send((str(i) + " " + str(j)).encode('utf-8'))
+                    client_lock.turn = -1  
+        else:
+            print("Chat desabilitado!")
 
 
+def decodeArray(array):
+    array = array.split("%")
+    array.pop(len(array) - 1)
+    result = []
+    for line in array:
+        line = line.replace("[", "")
+        line = line.replace("]", "")
+        elem = line.split(",")
+        for i in range(len(elem)):
+            if(elem[i] != "-"):
+                elem[i] = int(elem[i])
+        result.append(elem)
+    return result
 
 host = input("Digite o IP do servidor: ")
 port = int(input("Digite a porta do servidor: "))
@@ -267,9 +318,10 @@ tcp_client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 dest = (host, port)
 tcp_client.connect(dest)
 print("Conectado ao servidor em ", dest)
-rec_thread = threading.Thread(target=client_recieve, args=(tcp_client,))
+client_lock = client_lock()
+rec_thread = threading.Thread(target=client_recieve, args=(tcp_client,client_lock))
 rec_thread.start()
-send_thread = threading.Thread(target=client_send, args=(tcp_client, id))
+send_thread = threading.Thread(target=client_send, args=(tcp_client, client_lock))
 send_thread.start()
 
 

@@ -1,4 +1,6 @@
 from ipaddress import ip_address
+from multiprocessing import connection
+from multiprocessing.connection import wait
 import os
 import sys
 import time
@@ -221,38 +223,164 @@ def leCoordenada(dim):
 
     return (i, j)
 
+class gameInstance():
+    def __init__(self, dim, nJogadores,clients,ids,socket: socket.socket):
+        self.checkerSize = dim
+        self.nJogadores = nJogadores
+        self.clients = clients
+        self.ids = ids
+        self.tabuleiro = novoTabuleiro(dim)
+        self.placar = novoPlacar(nJogadores)
+        self.gameState = 0
+        self.turn = 0
+        self.move = []
+        self.socket = socket
+
+    def reset(self):
+        self.tabuleiro = novoTabuleiro(self.checkerSize)
+        self.placar = novoPlacar(self.nJogadores)
+        self.gameState = 0
+        self.turn = 0
+        self.move = []
+        self.clients = []
+        self.ids = []
+
+    def play(self):
+        self.gameState = 1
+        totalDePares = self.checkerSize**2 / 2
+        paresEncontrados = 0
+        self.turn = 0
+        while paresEncontrados < totalDePares:
+
+            # Requisita primeira peca do proximo jogador
+            #1 - printa o status atual do jogo
+            #2 - mensagem
+            sendMessageToClients(f"2|",self.clients)
+            sendMessageToClients(f"1{encodeArray(self.tabuleiro)};{self.placar};{self.turn}|",self.clients)
+            time.sleep(0.5)
+            self.clients[self.turn].send(f"0Escolha uma peça|".encode("utf-8"))
+            time.sleep(0.1)
+
+            while(len(self.move) == 0):
+                time.sleep(0.1)
+
+            i1, j1 = int(self.move[0]),int(self.move[1])
+            self.move = []
+
+            # Vira a peça escolhida
+            self.tabuleiro[i1][j1] = -self.tabuleiro[i1][j1]
+            sendMessageToClients(f"1{encodeArray(self.tabuleiro)};{self.placar};{self.turn}|",self.clients)
+            time.sleep(0.5)
+            self.clients[self.turn].send(f"0Escolha uma peça|".encode("utf-8"))
+            time.sleep(0.1)
+
+            while(len(self.move) == 0):
+                time.sleep(0.1)
+
+            i2, j2 = int(self.move[0]),int(self.move[1])
+            self.move = []
+
+            self.tabuleiro[i2][j2] = -self.tabuleiro[i2][j2]
+            sendMessageToClients(f"1{encodeArray(self.tabuleiro)};{self.placar};{self.turn}|",self.clients)
+            time.sleep(0.5)
+            sendMessageToClients(f"0Pecas escolhidas --> ({i1}, {j1}) e ({i2}, {j2})|",self.clients)
+            time.sleep(0.5)
+
+            # Pecas escolhidas sao iguais?
+            if self.tabuleiro[i1][j1] == self.tabuleiro[i2][j2]:
+
+                sendMessageToClients(f"0Pecas casam! Ponto para o jogador {self.turn + 1}.|",self.clients)
+                
+                incrementaPlacar(self.placar, self.turn)
+                paresEncontrados = paresEncontrados + 1
+                removePeca(self.tabuleiro, i1, j1)
+                removePeca(self.tabuleiro, i2, j2)
+
+                time.sleep(5)
+            else:
+
+                sendMessageToClients(f"0Pecas nao casam!|",self.clients)
+                
+                time.sleep(3)
+
+                fechaPeca(self.tabuleiro, i1, j1)
+                fechaPeca(self.tabuleiro, i2, j2)
+                self.turn = (self.turn + 1) % self.nJogadores
+
+        # Verificar o vencedor e imprimir
+        pontuacaoMaxima = max(self.placar)
+        vencedores = []
+        for i in range(0, self.nJogadores):
+
+            if self.placar[i] == pontuacaoMaxima:
+                vencedores.append(i)
+
+        if len(vencedores) > 1:
+            winners = ""
+            for i in vencedores:
+                winners += str(i + 1) + " "
+            sendMessageToClients(f"0Houve empate entre os jogadores {winners}\n|",self.clients)
+        else:
+            sendMessageToClients(f"0{self.gameState}|{2}|Jogador {vencedores[0] + 1} foi o vencedor!|",self.clients)
+        for client in self.clients:
+            client.close()
+        self.reset()
+        receive(self.socket,self.clients,self.ids,self)
+
+    
+def encodeArray(array):
+    line = ""
+    for i in array:
+        line += str(i) + "%"
+    return line
+
 # Função padrão que manda uma mensagem para todos os clientes
 def sendMessageToClients(message,clients):
     for client in clients:
         client.send(message.encode('utf-8'))
 
 # Função que recebe a mensagem do cliente e retorna a para todos os outros clientes
-def clientThread(conn,address,clients: list, ids: list):
+def clientThread(conn,address,clients: list, ids: list, game: gameInstance):
     index = clients.index(conn)
-    conn.send(f"Bem vindo ao jogo, jogador {ids[index]}!".encode('utf-8'))
+    conn.send(f"3{ids[index]}|".encode("utf-8"))
+    conn.send(f"0Bem vindo ao jogo, jogador {ids[index]}!\nSinta-se a vontade para usar o chat enquanto os jogadores se conectam!|".encode('utf-8'))
     while True:
         try:
             message = conn.recv(1024)
-            message_to_send = f"Jogador {ids[index]}: {message.decode('utf-8')}"
-            print(message_to_send)
-            sendMessageToClients(message_to_send,clients)
+            if(game.gameState == 0):
+                message_to_send = f"0Jogador {ids[index]}: {message.decode('utf-8')}|"
+                print(message_to_send)
+                sendMessageToClients(message_to_send,clients)
+            else:
+                move = message.decode('utf-8').split(' ')
+                if(game.turn == index and len(move) > 1):
+                    game.move = message.decode('utf-8').split(' ')
+                else:
+                    conn.send("0Não é sua vez|".encode('utf-8'))
+
         except:
-            sendMessageToClients(f"Jogador {ids[index]} Deixou o jogo!",clients)
+            sendMessageToClients(f"0Jogador {ids[index]} Deixou o jogo!\nAguardando conexões... {len(clients)}/{game.nJogadores}|",clients)
             clients.remove(conn)
             ids.remove(ids[index])
             conn.close()       
             break
 
-def receive(server : socket.socket, clients: list, ids: list, max_clients: int):
-    while len(clients) < max_clients:
-        print(f"Aguardando conexões... {len(clients)}/{max_clients}")
+def receive(server : socket.socket, clients: list, ids: list, game: gameInstance):
+    while len(clients) < game.nJogadores:
+        print(f"Aguardando conexões... {len(clients)}/{game.nJogadores}")
+        sendMessageToClients(f"0Aguardando conexões... {len(clients)}/{game.nJogadores}|",clients)
         conn, address = server.accept()
         clients.append(conn)
-        ids.append(len(clients))
+        ids.append(len(clients)-1)
         print(f"Conectado com {address}")
-        sendMessageToClients(f"Jogador {ids[len(ids)-1]} entrou no jogo!",clients)
-        thread = threading.Thread(target=clientThread, args=(conn,address,clients,ids))
+        sendMessageToClients(f"0Jogador {ids[len(ids)-1]} entrou no jogo!|",clients)
+        thread = threading.Thread(target=clientThread, args=(conn,address,clients,ids,game))
         thread.start()
+    print("Todos os jogadores conectados!\nIniciando jogo...")
+    sendMessageToClients("0Todos os jogadores conectados!\nIniciando jogo...|",clients)
+    time.sleep(3)
+    game.play()
+    
            
 def main():
     ##
@@ -260,24 +388,24 @@ def main():
     ##
 
     # Tamanho (da lateral) do tabuleiro. NECESSARIAMENTE PAR E MENOR QUE 10!
-    dim = int(input("Digite o tamanho do tabuleiro (par e menor que 10): "))
+    dim = int(input("Digite o tamanho do tabuleiro (Menor que 10, maior que 2 e par!): "))
+    while(dim < 2 or int(dim) > 10 or int(dim) % 2 != 0):
+        print("Tamanho invalido!")
+        dim = int(input("Digite o tamanho do tabuleiro (Menor que 10 e par!): "))
+
 
     # Numero de jogadores
-    nJogadores = int(input("Digite o numero de jogadores: "))
+    nJogadores = int(input("Digite o numero de jogadores (Min: 1 jogador): "))
+    while(nJogadores < 1):
+        print("Numero invalido!")
+        nJogadores = int(input("Digite o numero de jogadores: "))
 
     # Numero total de pares de pecas
-    totalDePares = dim**2 / 2
+    
 
     ##
     # Programa principal
     ##
-
-    # Cria um novo tabuleiro para a partida
-    tabuleiro = novoTabuleiro(dim)
-
-    # Cria um novo placar zerado
-    placar = novoPlacar(nJogadores)
-
 
     hostname=socket.gethostname()   
     ip_address=socket.gethostbyname(hostname)
@@ -290,7 +418,8 @@ def main():
     tpc_server.listen(nJogadores)
     client_list = []
     ids = []
-    receive(tpc_server,client_list,ids,nJogadores)
+    game = gameInstance(dim,nJogadores,client_list,ids,tpc_server)
+    receive(tpc_server,client_list,ids,game)
 
 main()
 
