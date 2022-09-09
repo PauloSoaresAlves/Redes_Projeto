@@ -204,6 +204,11 @@ def leCoordenada(dim,entry):
         print("onde i e j sao inteiros maiores ou iguais a 0 e menores que {0}".format(dim))
         input("Pressione <enter> para continuar...")
         return False
+    except IndexError:
+        print("Coordenadas invalidas! Use o formato \"i j\" (sem aspas),")
+        print("onde i e j sao inteiros maiores ou iguais a 0 e menores que {0}".format(dim))
+        input("Pressione <enter> para continuar...")
+        return False
 
     if i < 0 or i >= dim:
 
@@ -288,7 +293,7 @@ def client_send(client, client_lock: client_lock):
                 pass
             else:
                 i, j = coordenadas
-                if not (client_lock.tabuleiro[i][j] != "-" or client_lock.tabuleiro[i][j]  < 0):
+                if client_lock.tabuleiro[i][j] == "-" or client_lock.tabuleiro[i][j] > 0:
                     print("Essa peça já foi removida ou aberta!")
                 else:
                     client.send((str(i) + " " + str(j)).encode('utf-8'))
@@ -305,6 +310,7 @@ def decodeArray(array):
         line = line.replace("[", "")
         line = line.replace("]", "")
         line = line.replace("'", "")
+        line = line.replace(" ", "")
         elem = line.split(",")
         for i in range(len(elem)):
             if(elem[i] != "-"):

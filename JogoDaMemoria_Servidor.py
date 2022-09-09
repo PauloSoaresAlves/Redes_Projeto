@@ -360,11 +360,12 @@ def clientThread(conn,address,clients: list, ids: list, game: gameInstance):
                     conn.send("0Não é sua vez|".encode('utf-8'))
 
         except:
-            sendMessageToClients(f"0Jogador {ids[index]} Deixou o jogo!\nAguardando conexões... {len(clients)}/{game.nJogadores}|",clients)
-            clients.remove(conn)
-            ids.remove(ids[index])
-            conn.close()       
-            break
+            if game.gameState == 0:
+                clients.remove(conn)
+                sendMessageToClients(f"0Jogador {ids[index]} Deixou o jogo!\nAguardando conexões... {len(clients)}/{game.nJogadores}|",clients)
+                ids.remove(ids[index])
+                conn.close()       
+                break
 
 def receive(server : socket.socket, clients: list, ids: list, game: gameInstance):
     while len(clients) < game.nJogadores:
