@@ -9,6 +9,7 @@ import types
 import random
 import socket
 import selectors
+# Teste
 
 ##
 # Funcoes uteis
