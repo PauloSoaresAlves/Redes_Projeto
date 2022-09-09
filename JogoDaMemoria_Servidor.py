@@ -407,20 +407,21 @@ def main():
     ##
     # Programa principal
     ##
-
-    hostname=socket.gethostname()   
-    ip_address=socket.gethostbyname(hostname)
+    tcp_server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    s.connect(("8.8.8.8", 80))
+    ip_address=s.getsockname()[0]
+    s.close()
     print(f"IP do servidor: {ip_address}")
     port = 25542
 
     print(f"Servidor aberto na porta: {port}")
-    tpc_server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    tpc_server.bind((ip_address, port))
-    tpc_server.listen(nJogadores)
+    tcp_server.bind((ip_address, port))
+    tcp_server.listen(nJogadores)
     client_list = []
     ids = []
-    game = gameInstance(dim,nJogadores,client_list,ids,tpc_server)
-    receive(tpc_server,client_list,ids,game)
+    game = gameInstance(dim,nJogadores,client_list,ids,tcp_server)
+    receive(tcp_server,client_list,ids,game)
 
 main()
 

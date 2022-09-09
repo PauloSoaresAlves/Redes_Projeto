@@ -304,6 +304,7 @@ def decodeArray(array):
     for line in array:
         line = line.replace("[", "")
         line = line.replace("]", "")
+        line = line.replace("'", "")
         elem = line.split(",")
         for i in range(len(elem)):
             if(elem[i] != "-"):
