@@ -8,7 +8,7 @@ import threading
 import types
 import random
 import socket
-import selectors
+import json
 # Teste
 
 ##
@@ -257,7 +257,8 @@ class gameInstance():
             #1 - printa o status atual do jogo
             #2 - mensagem
             sendMessageToClients(f"2|",self.clients)
-            sendMessageToClients(f"1{encodeArray(self.tabuleiro)};{self.placar};{self.turn}|",self.clients)
+            json_message = json.dumps({"tabuleiro": self.tabuleiro, "placar": self.placar, "turn": self.turn})
+            sendMessageToClients(f"1{json_message}|",self.clients)
             time.sleep(0.5)
             self.clients[self.turn].send(f"0Escolha uma peça|".encode("utf-8"))
             time.sleep(0.1)
@@ -270,7 +271,8 @@ class gameInstance():
 
             # Vira a peça escolhida
             self.tabuleiro[i1][j1] = -self.tabuleiro[i1][j1]
-            sendMessageToClients(f"1{encodeArray(self.tabuleiro)};{self.placar};{self.turn}|",self.clients)
+            json_message = json.dumps({"tabuleiro": self.tabuleiro, "placar": self.placar, "turn": self.turn})
+            sendMessageToClients(f"1{json_message}|",self.clients)
             time.sleep(0.5)
             self.clients[self.turn].send(f"0Escolha uma peça|".encode("utf-8"))
             time.sleep(0.1)
@@ -282,7 +284,8 @@ class gameInstance():
             self.move = []
 
             self.tabuleiro[i2][j2] = -self.tabuleiro[i2][j2]
-            sendMessageToClients(f"1{encodeArray(self.tabuleiro)};{self.placar};{self.turn}|",self.clients)
+            json_message = json.dumps({"tabuleiro": self.tabuleiro, "placar": self.placar, "turn": self.turn})
+            sendMessageToClients(f"1{json_message}|",self.clients)
             time.sleep(0.5)
             sendMessageToClients(f"0Pecas escolhidas --> ({i1}, {j1}) e ({i2}, {j2})|",self.clients)
             time.sleep(0.5)
@@ -328,12 +331,13 @@ class gameInstance():
         self.reset()
         receive(self.socket,self.clients,self.ids,self)
 
-    
+'''
 def encodeArray(array):
     line = ""
     for i in array:
         line += str(i) + "%"
     return line
+'''
 
 # Função padrão que manda uma mensagem para todos os clientes
 def sendMessageToClients(message,clients):
@@ -401,10 +405,7 @@ def main():
     while(nJogadores < 1):
         print("Numero invalido!")
         nJogadores = int(input("Digite o numero de jogadores: "))
-
-    # Numero total de pares de pecas
     
-
     ##
     # Programa principal
     ##

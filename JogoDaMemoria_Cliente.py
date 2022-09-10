@@ -6,6 +6,7 @@ import time
 import threading
 import random
 import socket
+import json
 
 ##
 # Funcoes uteis
@@ -258,7 +259,7 @@ class client_lock():
 
 def client_recieve(client, client_lock: client_lock):
     while True:
-        #try:
+        try:
             message = client.recv(1024).decode('utf-8').split("|")
             if message:
                 for data in message:
@@ -266,21 +267,22 @@ def client_recieve(client, client_lock: client_lock):
                         if data[0] == "0":
                             print(data[1:])
                         elif data[0] == "1":
-                            tabuleiro, placar, turn = data[1:].split(";")
-                            tabuleiro = decodeArray(tabuleiro)
-                            client_lock.tabuleiro = tabuleiro
-                            client_lock.placar = decodeArray(placar)
-                            client_lock.turn = int(turn)
+                            print(data[1:])
+                            json_message = json.loads(data[1:])
+                            print(json_message)
+                            client_lock.tabuleiro = json_message["tabuleiro"]
+                            client_lock.placar = json_message["placar"]
+                            client_lock.turn = json_message["turn"]
                             imprimeStatus(client_lock.tabuleiro,client_lock.placar, client_lock.turn)
                         elif data[0] == "2":
                             client_lock.gameStarted = True
                         elif data[0] == "3":
                             client_lock.myId = int(data[1:])
                                            
-        #except:
-        #    print("Ocorreu um erro!")
-        #    client.close()
-        #    break
+        except:
+            print("Ocorreu um erro!")
+            client.close()
+            break
 
 def client_send(client, client_lock: client_lock):
     while True: 
@@ -301,7 +303,7 @@ def client_send(client, client_lock: client_lock):
         else:
             print("Chat desabilitado!")
 
-
+'''
 def decodeArray(array):
     array = array.split("%")
     array.pop(len(array) - 1)
@@ -317,6 +319,7 @@ def decodeArray(array):
                 elem[i] = int(elem[i])
         result.append(elem)
     return result
+'''
 
 host = input("Digite o IP do servidor: ")
 port = int(input("Digite a porta do servidor: "))
