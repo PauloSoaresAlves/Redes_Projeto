@@ -272,7 +272,7 @@ def client_recieve(client, client_lock: client_lock):
                             print(json_message)
                             client_lock.tabuleiro = json_message["tabuleiro"]
                             client_lock.placar = json_message["placar"]
-                            client_lock.turn = json_message["turn"]
+                            client_lock.turn = int(json_message["turn"])
                             imprimeStatus(client_lock.tabuleiro,client_lock.placar, client_lock.turn)
                         elif data[0] == "2":
                             client_lock.gameStarted = True

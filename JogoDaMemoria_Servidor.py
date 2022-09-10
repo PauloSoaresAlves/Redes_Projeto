@@ -325,7 +325,8 @@ class gameInstance():
                 winners += str(i + 1) + " "
             sendMessageToClients(f"0Houve empate entre os jogadores {winners}\n|",self.clients)
         else:
-            sendMessageToClients(f"0{self.gameState}|{2}|Jogador {vencedores[0] + 1} foi o vencedor!|",self.clients)
+            sendMessageToClients(f"0Jogador {vencedores[0] + 1} foi o vencedor!|",self.clients)
+        time.sleep(3)
         for client in self.clients:
             client.close()
         self.reset()
