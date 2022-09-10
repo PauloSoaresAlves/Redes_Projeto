@@ -327,8 +327,9 @@ class gameInstance():
         else:
             sendMessageToClients(f"0Jogador {vencedores[0] + 1} foi o vencedor!|",self.clients)
         time.sleep(3)
-        for client in self.clients:
-            client.close()
+        sendMessageToClients(f"4|",self.clients)
+        #for client in self.clients:
+       #     client.close()
         self.reset()
         receive(self.socket,self.clients,self.ids,self)
 

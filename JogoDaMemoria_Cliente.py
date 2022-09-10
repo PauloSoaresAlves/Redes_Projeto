@@ -7,6 +7,7 @@ import threading
 import random
 import socket
 import json
+from io import StringIO
 
 ##
 # Funcoes uteis
@@ -255,11 +256,12 @@ class client_lock():
         self.tabuleiro = []
         self.placar = []
         self.myId = 0
+        self.terminate=False
         
 
 def client_recieve(client, client_lock: client_lock):
     while True:
-        try:
+        #try:
             message = client.recv(1024).decode('utf-8').split("|")
             if message:
                 for data in message:
@@ -278,15 +280,21 @@ def client_recieve(client, client_lock: client_lock):
                             client_lock.gameStarted = True
                         elif data[0] == "3":
                             client_lock.myId = int(data[1:])
-                                           
-        except:
-            print("Ocorreu um erro!")
-            client.close()
-            break
+                        elif data[0] == "4":
+                            client.close()
+                            client_lock.terminate = True
+                            sys.exit(0)
+
+
+        #except:
+        #   print("Ocorreu um erro!")
+        #    client.close()
+        #    break
 
 def client_send(client, client_lock: client_lock):
-    while True: 
-        message = f'{input("")}'     
+    while not client_lock.terminate:
+        message = f'{input("")}'
+        print(message)
         if not client_lock.gameStarted:  
             client.send(message.encode('utf-8'))
         elif client_lock.gameStarted and client_lock.turn == client_lock.myId:
@@ -302,7 +310,7 @@ def client_send(client, client_lock: client_lock):
                     client_lock.turn = -1  
         else:
             print("Chat desabilitado!")
-
+    sys.exit(0)
 '''
 def decodeArray(array):
     array = array.split("%")
@@ -329,12 +337,13 @@ dest = (host, port)
 tcp_client.connect(dest)
 print("Conectado ao servidor em ", dest)
 client_lock = client_lock()
-rec_thread = threading.Thread(target=client_recieve, args=(tcp_client,client_lock))
-rec_thread.start()
 send_thread = threading.Thread(target=client_send, args=(tcp_client, client_lock))
 send_thread.start()
-
-
+rec_thread = threading.Thread(target=client_recieve, args=(tcp_client,client_lock))
+rec_thread.start()
+while(not client_lock.terminate):
+    time.sleep(1)
+sys.stdout=StringIO("Finalizando o programa.\n")
 
 '''
 # Partida continua enquanto ainda ha pares de pecas a 
