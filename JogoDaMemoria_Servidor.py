@@ -259,9 +259,7 @@ class gameInstance():
             sendMessageToClients(f"2|",self.clients)
             json_message = json.dumps({"tabuleiro": self.tabuleiro, "placar": self.placar, "turn": self.turn})
             sendMessageToClients(f"1{json_message}|",self.clients)
-            time.sleep(0.5)
             self.clients[self.turn].send(f"0Escolha uma peça|".encode("utf-8"))
-            time.sleep(0.1)
 
             while(len(self.move) == 0):
                 time.sleep(0.1)
@@ -273,9 +271,7 @@ class gameInstance():
             self.tabuleiro[i1][j1] = -self.tabuleiro[i1][j1]
             json_message = json.dumps({"tabuleiro": self.tabuleiro, "placar": self.placar, "turn": self.turn})
             sendMessageToClients(f"1{json_message}|",self.clients)
-            time.sleep(0.5)
             self.clients[self.turn].send(f"0Escolha uma peça|".encode("utf-8"))
-            time.sleep(0.1)
 
             while(len(self.move) == 0):
                 time.sleep(0.1)
@@ -300,7 +296,7 @@ class gameInstance():
                 removePeca(self.tabuleiro, i1, j1)
                 removePeca(self.tabuleiro, i2, j2)
 
-                time.sleep(5)
+                time.sleep(3)
             else:
 
                 sendMessageToClients(f"0Pecas nao casam!|",self.clients)
@@ -355,9 +351,9 @@ def clientThread(conn,address,clients: list, ids: list, game: gameInstance):
         try:
             message = conn.recv(1024)
             if(game.gameState == 0):
-                message_to_send = f"0Jogador {ids[index]}: {message.decode('utf-8')}|"
-                print(message_to_send)
-                sendMessageToClients(message_to_send,clients)
+                if message != "":
+                    message_to_send = f"0Jogador {ids[index]+1}: {message.decode('utf-8')}|"
+                    sendMessageToClients(message_to_send,clients)
             else:
                 move = message.decode('utf-8').split(' ')
                 if(game.turn == index and len(move) > 1):
@@ -381,7 +377,7 @@ def receive(server : socket.socket, clients: list, ids: list, game: gameInstance
         clients.append(conn)
         ids.append(len(clients)-1)
         print(f"Conectado com {address}")
-        sendMessageToClients(f"0Jogador {ids[len(ids)-1]} entrou no jogo!|",clients)
+        sendMessageToClients(f"0Jogador {ids[len(ids)-1]+1} entrou no jogo!|",clients)
         thread = threading.Thread(target=clientThread, args=(conn,address,clients,ids,game))
         thread.start()
     print("Todos os jogadores conectados!\nIniciando jogo...")

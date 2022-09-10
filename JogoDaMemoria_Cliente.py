@@ -4,6 +4,7 @@ import os
 import sys
 import time
 import threading
+from multiprocessing import process
 import random
 import socket
 import json
@@ -256,45 +257,12 @@ class client_lock():
         self.tabuleiro = []
         self.placar = []
         self.myId = 0
-        self.terminate=False
-        
-
-def client_recieve(client, client_lock: client_lock):
-    while True:
-        #try:
-            message = client.recv(1024).decode('utf-8').split("|")
-            if message:
-                for data in message:
-                    if data != "":
-                        if data[0] == "0":
-                            print(data[1:])
-                        elif data[0] == "1":
-                            print(data[1:])
-                            json_message = json.loads(data[1:])
-                            print(json_message)
-                            client_lock.tabuleiro = json_message["tabuleiro"]
-                            client_lock.placar = json_message["placar"]
-                            client_lock.turn = int(json_message["turn"])
-                            imprimeStatus(client_lock.tabuleiro,client_lock.placar, client_lock.turn)
-                        elif data[0] == "2":
-                            client_lock.gameStarted = True
-                        elif data[0] == "3":
-                            client_lock.myId = int(data[1:])
-                        elif data[0] == "4":
-                            client.close()
-                            client_lock.terminate = True
-                            sys.exit(0)
-
-
-        #except:
-        #   print("Ocorreu um erro!")
-        #    client.close()
-        #    break
+        self.terminate=False      
+    
 
 def client_send(client, client_lock: client_lock):
     while not client_lock.terminate:
         message = f'{input("")}'
-        print(message)
         if not client_lock.gameStarted:  
             client.send(message.encode('utf-8'))
         elif client_lock.gameStarted and client_lock.turn == client_lock.myId:
@@ -337,13 +305,39 @@ dest = (host, port)
 tcp_client.connect(dest)
 print("Conectado ao servidor em ", dest)
 client_lock = client_lock()
-send_thread = threading.Thread(target=client_send, args=(tcp_client, client_lock))
+send_thread = threading.Thread(target=client_send, args=(tcp_client, client_lock), daemon=True)
 send_thread.start()
-rec_thread = threading.Thread(target=client_recieve, args=(tcp_client,client_lock))
-rec_thread.start()
-while(not client_lock.terminate):
-    time.sleep(1)
-sys.stdout=StringIO("Finalizando o programa.\n")
+while True:
+        try:
+            message = tcp_client.recv(1024).decode('utf-8').split("|")
+            if message:
+                for data in message:
+                    if data != "":
+                        if data[0] == "0":
+                            print(data[1:])
+                        elif data[0] == "1":
+                            print(data[1:])
+                            json_message = json.loads(data[1:])
+                            client_lock.tabuleiro = json_message["tabuleiro"]
+                            client_lock.placar = json_message["placar"]
+                            client_lock.turn = int(json_message["turn"])
+                            imprimeStatus(client_lock.tabuleiro,client_lock.placar, client_lock.turn)
+                        elif data[0] == "2":
+                            client_lock.gameStarted = True
+                        elif data[0] == "3":
+                            client_lock.myId = int(data[1:])
+                        elif data[0] == "4":
+                            tcp_client.close()
+                            client_lock.terminate = True
+                            sys.exit(0)
+
+
+        except:
+            if client_lock.terminate:
+                sys.exit(0)
+            print("Ocorreu um erro!")
+            tcp_client.close()
+            break
 
 '''
 # Partida continua enquanto ainda ha pares de pecas a 
