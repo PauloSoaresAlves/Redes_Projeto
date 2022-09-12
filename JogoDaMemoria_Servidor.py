@@ -268,7 +268,7 @@ def receive(server : socket.socket, clients: list, ids: list, game: gameInstance
         ids.append(len(clients)-1)
         print(f"Conectado com {address}")
         sendMessageToClients(f"0Jogador {ids[len(ids)-1]+1} entrou no jogo!|",clients)
-        thread = threading.Thread(target=clientThread, args=(conn,address,clients,ids,game))
+        thread = threading.Thread(target=clientThread, args=(conn,clients,ids,game))
         thread.start()
     print("Todos os jogadores conectados!\nIniciando jogo...")
     sendMessageToClients("0Todos os jogadores conectados!\nIniciando jogo...|",clients)
