@@ -5,67 +5,11 @@ import threading
 import socket
 import random
 import json
-# Teste
 
-##
-# Funcoes uteis
-##
-
-# Limpa a tela.
-def limpaTela():
-    
-    os.system('cls' if os.name == 'nt' else 'clear')
 
 ##
 # Funcoes de manipulacao do tabuleiro
 ##
-
-# Imprime estado atual do tabuleiro
-def imprimeTabuleiro(tabuleiro):
-
-    # Limpa a tela
-    limpaTela()
-
-    # Imprime coordenadas horizontais
-    dim = len(tabuleiro)
-    sys.stdout.write("     ")
-    for i in range(0, dim):
-        sys.stdout.write("{0:2d} ".format(i))
-
-    sys.stdout.write("\n")
-
-    # Imprime separador horizontal
-    sys.stdout.write("-----")
-    for i in range(0, dim):
-        sys.stdout.write("---")
-
-    sys.stdout.write("\n")
-
-    for i in range(0, dim):
-
-        # Imprime coordenadas verticais
-        sys.stdout.write("{0:2d} | ".format(i))
-
-        # Imprime conteudo da linha 'i'
-        for j in range(0, dim):
-
-            # Peca ja foi removida?
-            if tabuleiro[i][j] == '-':
-
-                # Sim.
-                sys.stdout.write(" - ")
-
-            # Peca esta levantada?
-            elif tabuleiro[i][j] >= 0:
-
-                # Sim, imprime valor.
-                sys.stdout.write("{0:2d} ".format(tabuleiro[i][j]))
-            else:
-
-                # Nao, imprime '?'
-                sys.stdout.write(" ? ")
-
-        sys.stdout.write("\n")
 
 # Cria um novo tabuleiro com pecas aleatorias. 
 # 'dim' eh a dimensao do tabuleiro, necessariamente
@@ -114,19 +58,6 @@ def novoTabuleiro(dim):
 
     return tabuleiro
 
-# Abre (revela) peca na posicao (i, j). Se posicao ja esta
-# aberta ou se ja foi removida, retorna False. Retorna True
-# caso contrario.
-def abrePeca(tabuleiro, i, j):
-
-    if tabuleiro[i][j] == '-':
-        return False
-    elif tabuleiro[i][j] < 0:
-        tabuleiro[i][j] = -tabuleiro[i][j]
-        return True
-
-    return False
-
 # Fecha peca na posicao (i, j). Se posicao ja esta
 # fechada ou se ja foi removida, retorna False. Retorna True
 # caso contrario.
@@ -165,74 +96,26 @@ def incrementaPlacar(placar, jogador):
 
     placar[jogador] = placar[jogador] + 1
 
-# Imprime o placar atual.
-def imprimePlacar(placar):
 
-    nJogadores = len(placar)
+##<<Autoria Própria>>##
 
-    print("Placar:")
-    print("---------------------")
-    for i in range(0, nJogadores):
-        print ("Jogador {0}: {1:2d}".format(i + 1, placar[i]))
-
-##
-# Funcoes de interacao com o usuario
-#
-
-# Imprime informacoes basicas sobre o estado atual da partida.
-def imprimeStatus(tabuleiro, placar, vez):
-
-        imprimeTabuleiro(tabuleiro)
-        sys.stdout.write('\n')
-
-        imprimePlacar(placar)
-        sys.stdout.write('\n')
-        sys.stdout.write('\n')
-
-        print ("Vez do Jogador {0}.\n".format(vez + 1))
-
-# Le um coordenadas de uma peca. Retorna uma tupla do tipo (i, j)
-# em caso de sucesso, ou False em caso de erro.
-def leCoordenada(dim):
-
-    user_input = input("Especifique uma peca: ")
-
-    try:
-        i = int(user_input.split(' ')[0])
-        j = int(user_input.split(' ')[1])
-    except ValueError:
-        print("Coordenadas invalidas! Use o formato \"i j\" (sem aspas),")
-        print("onde i e j sao inteiros maiores ou iguais a 0 e menores que {0}".format(dim))
-        input("Pressione <enter> para continuar...")
-        return False
-
-    if i < 0 or i >= dim:
-
-        print ("Coordenada i deve ser maior ou igual a zero e menor que {0}".format(dim))
-        input("Pressione <enter> para continuar...")
-        return False
-
-    if j < 0 or j >= dim:
-
-        print ("Coordenada j deve ser maior ou igual a zero e menor que {0}".format(dim))
-        input("Pressione <enter> para continuar...")
-        return False
-
-    return (i, j)
-
+#Classe que representa uma instancia do jogo
+#Inicializa as variaveis para o jogo
+#Possui a função de rodar e resetar o jogo
 class gameInstance():
-    def __init__(self, dim, nJogadores,clients,ids,socket: socket.socket):
+    def __init__(self, dim:int, nJogadores:int,clients:list,ids:list,socket: socket.socket):
         self.checkerSize = dim
         self.nJogadores = nJogadores
         self.clients = clients
         self.ids = ids
         self.tabuleiro = novoTabuleiro(dim)
         self.placar = novoPlacar(nJogadores)
-        self.gameState = 0
+        self.gameState = 0 #gameState 1 = rodando, 0 = parado
         self.turn = 0
         self.move = []
         self.socket = socket
 
+    #Reseta o jogo para o estado inicial
     def reset(self):
         self.tabuleiro = novoTabuleiro(self.checkerSize)
         self.placar = novoPlacar(self.nJogadores)
@@ -242,6 +125,11 @@ class gameInstance():
         self.clients = []
         self.ids = []
 
+    #Função que roda o jogo
+    #0 - Mensagem para printar no console
+    #1 - Mensagem para atualizar dados do jogo corrente
+    #2 - Mensagem para iniciar o jogo
+    #3 - Mensagem para finalizar o jogo 
     def play(self):
         self.gameState = 1
         totalDePares = self.checkerSize**2 / 2
@@ -249,36 +137,51 @@ class gameInstance():
         self.turn = 0
         while paresEncontrados < totalDePares:
 
-            # Requisita primeira peca do proximo jogador
-            #1 - printa o status atual do jogo
-            #2 - mensagem
+            #Envia mensagem para o cliente atual que o jogo começou
             sendMessageToClients(f"2|",self.clients)
+
+            #Da os dados da de tabuleiro, placar e turno para todos os clientes
             json_message = json.dumps({"tabuleiro": self.tabuleiro, "placar": self.placar, "turn": self.turn})
             sendMessageToClients(f"1{json_message}|",self.clients)
+
+            #Pede uma peça para o cliente da vez
             self.clients[self.turn].send(f"0Escolha uma peça|".encode("utf-8"))
 
+            #Espera ocupada
             while(len(self.move) == 0):
                 time.sleep(0.1)
 
+            #Pega a peça escolhida
             i1, j1 = int(self.move[0]),int(self.move[1])
             self.move = []
 
             # Vira a peça escolhida
             self.tabuleiro[i1][j1] = -self.tabuleiro[i1][j1]
+
+            #Da os dados da de tabuleiro, placar e turno para todos os clientes
             json_message = json.dumps({"tabuleiro": self.tabuleiro, "placar": self.placar, "turn": self.turn})
             sendMessageToClients(f"1{json_message}|",self.clients)
+
+            #Pede uma peça para o cliente da vez
             self.clients[self.turn].send(f"0Escolha uma peça|".encode("utf-8"))
 
+            #Espera ocupada
             while(len(self.move) == 0):
                 time.sleep(0.1)
 
+            #Pega a peça escolhida
             i2, j2 = int(self.move[0]),int(self.move[1])
             self.move = []
 
+            # Vira a peça escolhida
             self.tabuleiro[i2][j2] = -self.tabuleiro[i2][j2]
+
+            #Da os dados da de tabuleiro, placar e turno para todos os clientes
             json_message = json.dumps({"tabuleiro": self.tabuleiro, "placar": self.placar, "turn": self.turn})
             sendMessageToClients(f"1{json_message}|",self.clients)
             time.sleep(0.5)
+
+            #Mensagem de se as peças são iguais
             sendMessageToClients(f"0Pecas escolhidas --> ({i1}, {j1}) e ({i2}, {j2})|",self.clients)
             time.sleep(0.5)
 
@@ -303,7 +206,7 @@ class gameInstance():
                 fechaPeca(self.tabuleiro, i2, j2)
                 self.turn = (self.turn + 1) % self.nJogadores
 
-        # Verificar o vencedor e imprimir
+        # Verificar o vencedor, imprimir e resetar
         pontuacaoMaxima = max(self.placar)
         vencedores = []
         for i in range(0, self.nJogadores):
@@ -320,8 +223,6 @@ class gameInstance():
             sendMessageToClients(f"0Jogador {vencedores[0] + 1} foi o vencedor!|",self.clients)
         time.sleep(3)
         sendMessageToClients(f"4|",self.clients)
-        #for client in self.clients:
-       #     client.close()
         self.reset()
         receive(self.socket,self.clients,self.ids,self)
 
@@ -331,7 +232,7 @@ def sendMessageToClients(message,clients):
         client.send(message.encode('utf-8'))
 
 # Função que recebe a mensagem do cliente e retorna a para todos os outros clientes
-def clientThread(conn,address,clients: list, ids: list, game: gameInstance):
+def clientThread(conn:socket.socket,clients: list, ids: list, game: gameInstance):
     index = clients.index(conn)
     conn.send(f"3{ids[index]}|".encode("utf-8"))
     conn.send(f"0Bem vindo ao jogo, jogador {ids[index]}!\nSinta-se a vontade para usar o chat enquanto os jogadores se conectam!|".encode('utf-8'))
@@ -357,6 +258,7 @@ def clientThread(conn,address,clients: list, ids: list, game: gameInstance):
                 conn.close()       
                 break
 
+#Função que aguarda a conexão dos clientes e, quando todos se conectarem, inicia o jogo
 def receive(server : socket.socket, clients: list, ids: list, game: gameInstance):
     while len(clients) < game.nJogadores:
         print(f"Aguardando conexões... {len(clients)}/{game.nJogadores}")
@@ -373,7 +275,7 @@ def receive(server : socket.socket, clients: list, ids: list, game: gameInstance
     time.sleep(3)
     game.play()
     
-           
+#Inicializador do servidor           
 def main():
     ##
     # Parametros da partida
@@ -395,14 +297,17 @@ def main():
     ##
     # Programa principal
     ##
+
+    # Cria o socket do servidor
     tcp_server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+
+    # Define o IP e a porta do servidor
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     s.connect(("8.8.8.8", 80))
     ip_address=s.getsockname()[0]
     s.close()
     print(f"IP do servidor: {ip_address}")
     port = 25542
-
     print(f"Servidor aberto na porta: {port}")
     tcp_server.bind((ip_address, port))
     tcp_server.listen(nJogadores)

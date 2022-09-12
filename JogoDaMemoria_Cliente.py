@@ -65,103 +65,9 @@ def imprimeTabuleiro(tabuleiro):
 
         sys.stdout.write("\n")
 
-# Cria um novo tabuleiro com pecas aleatorias. 
-# 'dim' eh a dimensao do tabuleiro, necessariamente
-# par.
-def novoTabuleiro(dim):
-
-    # Cria um tabuleiro vazio.
-    tabuleiro = []
-    for i in range(0, dim):
-
-        linha = []
-        for j in range(0, dim):
-
-            linha.append(0)
-
-        tabuleiro.append(linha)
-
-    # Cria uma lista de todas as posicoes do tabuleiro. Util para
-    # sortearmos posicoes aleatoriamente para as pecas.
-    posicoesDisponiveis = []
-    for i in range(0, dim):
-
-        for j in range(0, dim):
-
-            posicoesDisponiveis.append((i, j))
-
-    # Varre todas as pecas que serao colocadas no 
-    # tabuleiro e posiciona cada par de pecas iguais
-    # em posicoes aleatorias.
-    for j in range(0, int(dim / 2)):
-        for i in range(1, dim + 1):
-
-            # Sorteio da posicao da segunda peca com valor 'i'
-            maximo = len(posicoesDisponiveis)
-            indiceAleatorio = random.randint(0, maximo - 1)
-            rI, rJ = posicoesDisponiveis.pop(indiceAleatorio)
-
-            tabuleiro[rI][rJ] = -i
-
-            # Sorteio da posicao da segunda peca com valor 'i'
-            maximo = len(posicoesDisponiveis)
-            indiceAleatorio = random.randint(0, maximo - 1)
-            rI, rJ = posicoesDisponiveis.pop(indiceAleatorio)
-
-            tabuleiro[rI][rJ] = -i
-
-    return tabuleiro
-
-# Abre (revela) peca na posicao (i, j). Se posicao ja esta
-# aberta ou se ja foi removida, retorna False. Retorna True
-# caso contrario.
-def abrePeca(tabuleiro, i, j):
-
-    if tabuleiro[i][j] == '-':
-        return False
-    elif tabuleiro[i][j] < 0:
-        tabuleiro[i][j] = -tabuleiro[i][j]
-        return True
-
-    return False
-
-# Fecha peca na posicao (i, j). Se posicao ja esta
-# fechada ou se ja foi removida, retorna False. Retorna True
-# caso contrario.
-def fechaPeca(tabuleiro, i, j):
-
-    if tabuleiro[i][j] == '-':
-        return False
-    elif tabuleiro[i][j] > 0:
-        tabuleiro[i][j] = -tabuleiro[i][j]
-        return True
-
-    return False
-
-# Remove peca na posicao (i, j). Se posicao ja esta
-# removida, retorna False. Retorna True
-# caso contrario.
-def removePeca(tabuleiro, i, j):
-
-    if tabuleiro[i][j] == '-':
-        return False
-    else:
-        tabuleiro[i][j] = "-"
-        return True
-
 ## 
 # Funcoes de manipulacao do placar
 ##
-
-# Cria um novo placar zerado.
-def novoPlacar(nJogadores):
-
-    return [0] * nJogadores
-
-# Adiciona um ponto no placar para o jogador especificado.
-def incrementaPlacar(placar, jogador):
-
-    placar[jogador] = placar[jogador] + 1
 
 # Imprime o placar atual.
 def imprimePlacar(placar):
@@ -189,14 +95,16 @@ def imprimeStatus(tabuleiro, placar, vez):
 
         print ("Vez do Jogador {0}.\n".format(vez + 1))
 
-# Le um coordenadas de uma peca. Retorna uma tupla do tipo (i, j)
+
+#<<MODIFICADA>>
+# Recebe as coordenadas de uma peca. Retorna uma tupla do tipo (i, j)
 # em caso de sucesso, ou False em caso de erro.
-def leCoordenada(dim,entry):
+def leCoordenada(dim,input):
 
 
     try:
-        i = int(entry.split(' ')[0])
-        j = int(entry.split(' ')[1])
+        i = int(input.split(' ')[0])
+        j = int(input.split(' ')[1])
     except ValueError:
         print("Coordenadas invalidas! Use o formato \"i j\" (sem aspas),")
         print("onde i e j sao inteiros maiores ou iguais a 0 e menores que {0}".format(dim))
@@ -222,10 +130,12 @@ def leCoordenada(dim,entry):
 
     return (i, j)
 
-##
-# Parametros da partida
-##
-class client_lock():
+
+##<<Autoria Própria>>##
+
+#Clase para facilitar a comunicação entre as threads
+#Contém todas as informações necessárias para o cliente
+class client_status():
     def __init__(self):
         self.gameStarted = False
         self.turn = -1
@@ -234,38 +144,50 @@ class client_lock():
         self.myId = 0
         self.terminate=False      
     
-
-def client_send(client, client_lock: client_lock):
-    while not client_lock.terminate:
+#Função que lida com a entrada do usuário e o envio de mensagens para o servidor
+#Thread que fica rodando em paralelo com a thread de recebimento de mensagens
+#Por ser uma thread daemon, finaliza a execução quando a thread principal termina
+def client_send(tcp_client, clientInfo: client_status):
+    while not clientInfo.terminate:
         message = f'{input("")}'
-        if not client_lock.gameStarted:  
-            client.send(message.encode('utf-8'))
-        elif client_lock.gameStarted and client_lock.turn == client_lock.myId:
-            coordenadas = leCoordenada(len(client_lock.tabuleiro),message)
+        if not clientInfo.gameStarted:  
+            tcp_client.send(message.encode('utf-8'))
+        elif clientInfo.gameStarted and clientInfo.turn == clientInfo.myId:
+            coordenadas = leCoordenada(len(clientInfo.tabuleiro),message)
             if(not coordenadas):
                 pass
             else:
                 i, j = coordenadas
-                if client_lock.tabuleiro[i][j] == "-" or client_lock.tabuleiro[i][j] > 0:
+                if clientInfo.tabuleiro[i][j] == "-" or clientInfo.tabuleiro[i][j] > 0:
                     print("Essa peça já foi removida ou aberta!")
                 else:
-                    client.send((str(i) + " " + str(j)).encode('utf-8'))
-                    client_lock.turn = -1  
+                    tcp_client.send((str(i) + " " + str(j)).encode('utf-8'))
+                    clientInfo.turn = -1  
         else:
             print("Chat desabilitado!")
     sys.exit(0)
 
-
+#inputs do usuário
 host = input("Digite o IP do servidor: ")
 port = int(input("Digite a porta do servidor: "))
 
+#Cria o socket
 tcp_client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 dest = (host, port)
 tcp_client.connect(dest)
 print("Conectado ao servidor em ", dest)
-client_lock = client_lock()
-send_thread = threading.Thread(target=client_send, args=(tcp_client, client_lock), daemon=True)
+
+#Cria a thread que lida com a entrada do usuário
+clientInfo = client_status()
+send_thread = threading.Thread(target=client_send, args=(tcp_client, clientInfo), daemon=True)
 send_thread.start()
+
+#Loop principal que fica recebendo mensagens do servidor
+#Decodifica a mensagem e executa a ação correspondente
+#0 - Mensagem para printar no console
+#1 - Mensagem para atualizar dados do jogo corrente
+#2 - Mensagem para iniciar o jogo
+#3 - Mensagem para finalizar o jogo
 while True:
         try:
             message = tcp_client.recv(1024).decode('utf-8').split("|")
@@ -277,22 +199,22 @@ while True:
                         elif data[0] == "1":
                             print(data[1:])
                             json_message = json.loads(data[1:])
-                            client_lock.tabuleiro = json_message["tabuleiro"]
-                            client_lock.placar = json_message["placar"]
-                            client_lock.turn = int(json_message["turn"])
-                            imprimeStatus(client_lock.tabuleiro,client_lock.placar, client_lock.turn)
+                            clientInfo.tabuleiro = json_message["tabuleiro"]
+                            clientInfo.placar = json_message["placar"]
+                            clientInfo.turn = int(json_message["turn"])
+                            imprimeStatus(clientInfo.tabuleiro,clientInfo.placar, clientInfo.turn)
                         elif data[0] == "2":
-                            client_lock.gameStarted = True
+                            clientInfo.gameStarted = True
                         elif data[0] == "3":
-                            client_lock.myId = int(data[1:])
+                            clientInfo.myId = int(data[1:])
                         elif data[0] == "4":
                             tcp_client.close()
-                            client_lock.terminate = True
+                            clientInfo.terminate = True
                             sys.exit(0)
 
 
         except:
-            if client_lock.terminate:
+            if clientInfo.terminate:
                 sys.exit(0)
             print("Ocorreu um erro!")
             tcp_client.close()
