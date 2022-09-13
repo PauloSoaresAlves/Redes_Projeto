@@ -172,10 +172,14 @@ host = input("Digite o IP do servidor: ")
 port = int(input("Digite a porta do servidor: "))
 
 #Cria o socket
-tcp_client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-dest = (host, port)
-tcp_client.connect(dest)
-print("Conectado ao servidor em ", dest)
+try:
+    tcp_client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    dest = (host, port)
+    tcp_client.connect(dest)
+    print("Conectado ao servidor em ", dest)
+except:
+    print("Não foi possível conectar ao servidor")
+    sys.exit(0)
 
 #Cria a thread que lida com a entrada do usuário
 clientInfo = client_status()
@@ -197,7 +201,6 @@ while True:
                         if data[0] == "0":
                             print(data[1:])
                         elif data[0] == "1":
-                            print(data[1:])
                             json_message = json.loads(data[1:])
                             clientInfo.tabuleiro = json_message["tabuleiro"]
                             clientInfo.placar = json_message["placar"]

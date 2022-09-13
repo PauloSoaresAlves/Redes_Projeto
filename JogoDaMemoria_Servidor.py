@@ -222,6 +222,7 @@ class gameInstance():
         else:
             sendMessageToClients(f"0Jogador {vencedores[0] + 1} foi o vencedor!|",self.clients)
         time.sleep(3)
+        print("Jogo finalizado")
         sendMessageToClients(f"4|",self.clients)
         self.reset()
         receive(self.socket,self.clients,self.ids,self)
@@ -229,23 +230,28 @@ class gameInstance():
 # Função padrão que manda uma mensagem para todos os clientes
 def sendMessageToClients(message,clients):
     for client in clients:
-        client.send(message.encode('utf-8'))
+        try:
+            client.send(message.encode("utf-8"))
+        except:
+            pass
 
 # Função que recebe a mensagem do cliente e retorna a para todos os outros clientes
 def clientThread(conn:socket.socket,clients: list, ids: list, game: gameInstance):
-    index = clients.index(conn)
-    conn.send(f"3{ids[index]}|".encode("utf-8"))
-    conn.send(f"0Bem vindo ao jogo, jogador {ids[index]}!\nSinta-se a vontade para usar o chat enquanto os jogadores se conectam!|".encode('utf-8'))
+    connIndex = clients.index(conn)
+    clientId = ids[connIndex]
+    conn.send(f"3{clientId}|".encode("utf-8"))
+    conn.send(f"0Bem vindo ao jogo, jogador {clientId+1}!\nSinta-se a vontade para usar o chat enquanto os jogadores se conectam!|".encode('utf-8'))
     while True:
         try:
             message = conn.recv(1024)
             if(game.gameState == 0):
                 if message != "":
-                    message_to_send = f"0Jogador {ids[index]+1}: {message.decode('utf-8')}|"
+                    message_to_send = f"0Jogador {clientId+1}: {message.decode('utf-8')}|"
+                    print(message_to_send)
                     sendMessageToClients(message_to_send,clients)
             else:
                 move = message.decode('utf-8').split(' ')
-                if(game.turn == index and len(move) > 1):
+                if(game.turn == clientId and len(move) > 1):
                     game.move = message.decode('utf-8').split(' ')
                 else:
                     conn.send("0Não é sua vez|".encode('utf-8'))
@@ -253,10 +259,9 @@ def clientThread(conn:socket.socket,clients: list, ids: list, game: gameInstance
         except:
             if game.gameState == 0:
                 clients.remove(conn)
-                sendMessageToClients(f"0Jogador {ids[index]} Deixou o jogo!\nAguardando conexões... {len(clients)}/{game.nJogadores}|",clients)
-                ids.remove(ids[index])
-                conn.close()       
-                break
+                sendMessageToClients(f"0Jogador {clientId} Deixou o jogo!\nAguardando conexões... {len(clients)}/{game.nJogadores}|",clients)
+                ids.remove(clientId)      
+            break
 
 #Função que aguarda a conexão dos clientes e, quando todos se conectarem, inicia o jogo
 def receive(server : socket.socket, clients: list, ids: list, game: gameInstance):
@@ -266,7 +271,7 @@ def receive(server : socket.socket, clients: list, ids: list, game: gameInstance
         conn, address = server.accept()
         clients.append(conn)
         ids.append(len(clients)-1)
-        print(f"Conectado com {address}")
+        print(f"Conectado com {address}\nId: {len(clients)-1}")
         sendMessageToClients(f"0Jogador {ids[len(ids)-1]+1} entrou no jogo!|",clients)
         thread = threading.Thread(target=clientThread, args=(conn,clients,ids,game))
         thread.start()
@@ -285,7 +290,7 @@ def main():
     dim = int(input("Digite o tamanho do tabuleiro (Menor que 10, maior que 2 e par!): "))
     while(dim < 2 or int(dim) > 10 or int(dim) % 2 != 0):
         print("Tamanho invalido!")
-        dim = int(input("Digite o tamanho do tabuleiro (Menor que 10 e par!): "))
+        dim = int(input("Digite o tamanho do tabuleiro (Menor que 10, maior que 2 e par!): "))
 
 
     # Numero de jogadores
@@ -306,7 +311,7 @@ def main():
     s.connect(("8.8.8.8", 80))
     ip_address=s.getsockname()[0]
     s.close()
-    print(f"IP do servidor: {ip_address}")
+    print(f"IP privado do servidor: {ip_address}")
     port = 25542
     print(f"Servidor aberto na porta: {port}")
     tcp_server.bind((ip_address, port))
