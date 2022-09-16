@@ -233,7 +233,7 @@ def sendMessageToClients(message,clients):
         try:
             client.send(message.encode("utf-8"))
         except:
-            pass
+            client.remove(client)
 
 # Função que recebe a mensagem do cliente e retorna a para todos os outros clientes
 def clientThread(conn:socket.socket,clients: list, ids: list, game: gameInstance):
@@ -241,13 +241,12 @@ def clientThread(conn:socket.socket,clients: list, ids: list, game: gameInstance
     clientId = ids[connIndex]
     conn.send(f"3{clientId}|".encode("utf-8"))
     conn.send(f"0Bem vindo ao jogo, jogador {clientId+1}!\nSinta-se a vontade para usar o chat enquanto os jogadores se conectam!|".encode('utf-8'))
-    while True:
+    while conn in clients:
         try:
             message = conn.recv(1024)
             if(game.gameState == 0):
                 if message != "":
                     message_to_send = f"0Jogador {clientId+1}: {message.decode('utf-8')}|"
-                    print(message_to_send)
                     sendMessageToClients(message_to_send,clients)
             else:
                 move = message.decode('utf-8').split(' ')
