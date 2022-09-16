@@ -99,12 +99,12 @@ def imprimeStatus(tabuleiro, placar, vez):
 #<<MODIFICADA>>
 # Recebe as coordenadas de uma peca. Retorna uma tupla do tipo (i, j)
 # em caso de sucesso, ou False em caso de erro.
-def leCoordenada(dim,input):
+def leCoordenada(dim,user_input):
 
 
     try:
-        i = int(input.split(' ')[0])
-        j = int(input.split(' ')[1])
+        i = int(user_input.split(' ')[0])
+        j = int(user_input.split(' ')[1])
     except ValueError:
         print("Coordenadas invalidas! Use o formato \"i j\" (sem aspas),")
         print("onde i e j sao inteiros maiores ou iguais a 0 e menores que {0}".format(dim))
