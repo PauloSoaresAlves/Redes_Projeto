@@ -248,7 +248,6 @@ def clientThread(conn:socket.socket,clients: list, ids: list, game: gameInstance
             if(game.gameState == 0):
                 if message != "":
                     message_to_send = f"0Jogador {clientId+1}: {message.decode('utf-8')}|"
-                    print(message_to_send)
                     sendMessageToClients(message_to_send,clients)
             else:
                 move = message.decode('utf-8').split(' ')
