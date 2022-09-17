@@ -191,7 +191,8 @@ send_thread.start()
 #0 - Mensagem para printar no console
 #1 - Mensagem para atualizar dados do jogo corrente
 #2 - Mensagem para iniciar o jogo
-#3 - Mensagem para finalizar o jogo
+#3 - Mensagem para receber o id do cliente
+#4 - Mensagem para finalizar o jogo
 while True:
         try:
             message = tcp_client.recv(1024).decode('utf-8').split("|")
