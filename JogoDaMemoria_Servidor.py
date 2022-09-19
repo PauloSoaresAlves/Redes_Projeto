@@ -226,7 +226,7 @@ class gameInstance():
         print("Jogo finalizado")
         sendMessageToClients(f"4|",self.clients)
         self.reset()
-        receive(self.socket,self.clients,self.ids,self)
+        receive(self.socket,self)
 
 # Função padrão que manda uma mensagem para todos os clientes
 def sendMessageToClients(message,clients):
@@ -275,7 +275,7 @@ def receive(server : socket.socket, game: gameInstance):
         game.ids.append(len(game.clients)-1)
         print(f"Conectado com {address}\nId: {len(game.clients)-1}")
         sendMessageToClients(f"0Jogador {game.ids[len(game.ids)-1]+1} entrou no jogo!|",game.clients)
-        thread = threading.Thread(target=clientThread, args=(conn,game.clients,game.ids,game))
+        thread = threading.Thread(target=clientThread, args=(conn,game))
         thread.start()
     print("Todos os jogadores conectados!\nIniciando jogo...")
     sendMessageToClients("0Todos os jogadores conectados!\nIniciando jogo...|",game.clients)
