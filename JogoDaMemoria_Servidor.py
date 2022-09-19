@@ -103,11 +103,11 @@ def incrementaPlacar(placar, jogador):
 #Inicializa as variaveis para o jogo
 #Possui a função de rodar e resetar o jogo
 class gameInstance():
-    def __init__(self, dim:int, nJogadores:int,clients:list,ids:list,socket: socket.socket):
+    def __init__(self, dim:int, nJogadores:int,socket: socket.socket):
         self.checkerSize = dim
         self.nJogadores = nJogadores
-        self.clients = clients
-        self.ids = ids
+        self.clients = []
+        self.ids = []
         self.tabuleiro = novoTabuleiro(dim)
         self.placar = novoPlacar(nJogadores)
         self.gameState = 0 #gameState 1 = rodando, 0 = parado
@@ -234,21 +234,23 @@ def sendMessageToClients(message,clients):
         try:
             client.send(message.encode("utf-8"))
         except:
-            clients.remove(client)
+            pass
 
 # Função que recebe a mensagem do cliente e retorna a para todos os outros clientes
-def clientThread(conn:socket.socket,clients: list, ids: list, game: gameInstance):
-    connIndex = clients.index(conn)
-    clientId = ids[connIndex]
+def clientThread(conn:socket.socket, game: gameInstance):
+    connIndex = game.clients.index(conn)
+    clientId = game.ids[connIndex]
     conn.send(f"3{clientId}|".encode("utf-8"))
     conn.send(f"0Bem vindo ao jogo, jogador {clientId+1}!\nSinta-se a vontade para usar o chat enquanto os jogadores se conectam!|".encode('utf-8'))
-    while conn in clients:
+    while conn in game.clients:
         try:
             message = conn.recv(1024)
+            if not message:
+                break
             if(game.gameState == 0):
                 if message != "":
                     message_to_send = f"0Jogador {clientId+1}: {message.decode('utf-8')}|"
-                    sendMessageToClients(message_to_send,clients)
+                    sendMessageToClients(message_to_send,game.clients)
             else:
                 move = message.decode('utf-8').split(' ')
                 if(game.turn == clientId and len(move) > 1):
@@ -257,26 +259,26 @@ def clientThread(conn:socket.socket,clients: list, ids: list, game: gameInstance
                     conn.send("0Não é sua vez|".encode('utf-8'))
 
         except:
-            if game.gameState == 0:
-                clients.remove(conn)
-                sendMessageToClients(f"0Jogador {clientId} Deixou o jogo!\nAguardando conexões... {len(clients)}/{game.nJogadores}|",clients)
-                ids.remove(clientId)      
+            if conn in game.clients:
+                game.clients.remove(conn)
+                sendMessageToClients(f"0Jogador {clientId} Deixou o jogo!\nAguardando conexões... {len(game.clients)}/{game.nJogadores}|",game.clients)
+                game.ids.remove(clientId)      
             break
 
 #Função que aguarda a conexão dos clientes e, quando todos se conectarem, inicia o jogo
-def receive(server : socket.socket, clients: list, ids: list, game: gameInstance):
-    while len(clients) < game.nJogadores:
-        print(f"Aguardando conexões... {len(clients)}/{game.nJogadores}")
-        sendMessageToClients(f"0Aguardando conexões... {len(clients)}/{game.nJogadores}|",clients)
+def receive(server : socket.socket, game: gameInstance):
+    while len(game.clients) < game.nJogadores:
+        print(f"Aguardando conexões... {len(game.clients)}/{game.nJogadores}")
+        sendMessageToClients(f"0Aguardando conexões... {len(game.clients)}/{game.nJogadores}|",game.clients)
         conn, address = server.accept()
-        clients.append(conn)
-        ids.append(len(clients)-1)
-        print(f"Conectado com {address}\nId: {len(clients)-1}")
-        sendMessageToClients(f"0Jogador {ids[len(ids)-1]+1} entrou no jogo!|",clients)
-        thread = threading.Thread(target=clientThread, args=(conn,clients,ids,game))
+        game.clients.append(conn)
+        game.ids.append(len(game.clients)-1)
+        print(f"Conectado com {address}\nId: {len(game.clients)-1}")
+        sendMessageToClients(f"0Jogador {game.ids[len(game.ids)-1]+1} entrou no jogo!|",game.clients)
+        thread = threading.Thread(target=clientThread, args=(conn,game.clients,game.ids,game))
         thread.start()
     print("Todos os jogadores conectados!\nIniciando jogo...")
-    sendMessageToClients("0Todos os jogadores conectados!\nIniciando jogo...|",clients)
+    sendMessageToClients("0Todos os jogadores conectados!\nIniciando jogo...|",game.clients)
     time.sleep(3)
     game.play()
     
@@ -316,9 +318,7 @@ def main():
     print(f"Servidor aberto na porta: {port}")
     tcp_server.bind((ip_address, port))
     tcp_server.listen(nJogadores)
-    client_list = []
-    ids = []
-    game = gameInstance(dim,nJogadores,client_list,ids,tcp_server)
-    receive(tcp_server,client_list,ids,game)
+    game = gameInstance(dim,nJogadores,tcp_server)
+    receive(tcp_server,game)
 
 main()
