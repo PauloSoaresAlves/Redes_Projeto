@@ -106,8 +106,10 @@ class gameInstance():
     def __init__(self, dim:int, nJogadores:int,socket: socket.socket):
         self.checkerSize = dim
         self.nJogadores = nJogadores
+        self.maxJogadores = nJogadores
         self.clients = []
         self.ids = []
+        self.lock = threading.Lock()
         self.tabuleiro = novoTabuleiro(dim)
         self.placar = novoPlacar(nJogadores)
         self.gameState = 0 #gameState 1 = rodando, 0 = parado
@@ -117,13 +119,17 @@ class gameInstance():
 
     #Reseta o jogo para o estado inicial
     def reset(self):
-        self.tabuleiro = novoTabuleiro(self.checkerSize)
-        self.placar = novoPlacar(self.nJogadores)
-        self.gameState = 0
-        self.turn = 0
-        self.move = []
-        self.clients = []
-        self.ids = []
+        clientsClone = self.clients.copy()
+        sendMessageToClients(f"4|",self,clientsClone)
+        with self.lock:
+            self.nJogadores = self.maxJogadores
+            self.tabuleiro = novoTabuleiro(self.checkerSize)
+            self.placar = novoPlacar(self.nJogadores)   
+            self.turn = 0
+            self.move = []
+            self.clients = []
+            self.ids = []
+            self.gameState = 0
 
     #Função que roda o jogo
     #0 - Mensagem para printar no console
@@ -139,11 +145,11 @@ class gameInstance():
         while paresEncontrados < totalDePares:
 
             #Envia mensagem para o cliente atual que o jogo começou
-            sendMessageToClients(f"2|",self.clients)
+            sendMessageToClients(f"2|",self)
 
             #Da os dados da de tabuleiro, placar e turno para todos os clientes
-            json_message = json.dumps({"tabuleiro": self.tabuleiro, "placar": self.placar, "turn": self.turn})
-            sendMessageToClients(f"1{json_message}|",self.clients)
+            json_message = json.dumps({"tabuleiro": self.tabuleiro, "placar": self.placar, "turn": self.ids[self.turn], "players": self.ids})
+            sendMessageToClients(f"1{json_message}|",self)
 
             #Pede uma peça para o cliente da vez
             self.clients[self.turn].send(f"0Escolha uma peça|".encode("utf-8"))
@@ -156,12 +162,16 @@ class gameInstance():
             i1, j1 = int(self.move[0]),int(self.move[1])
             self.move = []
 
+            if i1 == -10 and j1 == -10:
+                continue
+
+
             # Vira a peça escolhida
             self.tabuleiro[i1][j1] = -self.tabuleiro[i1][j1]
 
             #Da os dados da de tabuleiro, placar e turno para todos os clientes
-            json_message = json.dumps({"tabuleiro": self.tabuleiro, "placar": self.placar, "turn": self.turn})
-            sendMessageToClients(f"1{json_message}|",self.clients)
+            json_message = json.dumps({"tabuleiro": self.tabuleiro, "placar": self.placar, "turn": self.ids[self.turn], "players": self.ids})
+            sendMessageToClients(f"1{json_message}|",self)
 
             #Pede uma peça para o cliente da vez
             self.clients[self.turn].send(f"0Escolha uma peça|".encode("utf-8"))
@@ -174,63 +184,68 @@ class gameInstance():
             i2, j2 = int(self.move[0]),int(self.move[1])
             self.move = []
 
+            if i2 == -10 and j2 == -10:
+                continue
+
             # Vira a peça escolhida
             self.tabuleiro[i2][j2] = -self.tabuleiro[i2][j2]
 
             #Da os dados da de tabuleiro, placar e turno para todos os clientes
-            json_message = json.dumps({"tabuleiro": self.tabuleiro, "placar": self.placar, "turn": self.turn})
-            sendMessageToClients(f"1{json_message}|",self.clients)
+            json_message = json.dumps({"tabuleiro": self.tabuleiro, "placar": self.placar, "turn": self.ids[self.turn],"players": self.ids})
+            sendMessageToClients(f"1{json_message}|",self)
             time.sleep(0.5)
 
             #Mensagem de se as peças são iguais
-            sendMessageToClients(f"0Pecas escolhidas --> ({i1}, {j1}) e ({i2}, {j2})|",self.clients)
+            sendMessageToClients(f"0Pecas escolhidas --> ({i1}, {j1}) e ({i2}, {j2})|",self)
             time.sleep(0.5)
 
             # Pecas escolhidas sao iguais?
-            if self.tabuleiro[i1][j1] == self.tabuleiro[i2][j2]:
+            with self.lock:
+                if self.tabuleiro[i1][j1] == self.tabuleiro[i2][j2]:
 
-                sendMessageToClients(f"0Pecas casam! Ponto para o jogador {self.turn + 1}.|",self.clients)
-                
-                incrementaPlacar(self.placar, self.turn)
-                paresEncontrados = paresEncontrados + 1
-                removePeca(self.tabuleiro, i1, j1)
-                removePeca(self.tabuleiro, i2, j2)
+                    sendMessageToClients(f"0Pecas casam! Ponto para o jogador {self.ids[self.turn] + 1}.|",self)
+                    
+                    incrementaPlacar(self.placar, self.turn)
+                    paresEncontrados = paresEncontrados + 1
+                    removePeca(self.tabuleiro, i1, j1)
+                    removePeca(self.tabuleiro, i2, j2)
 
-                time.sleep(3)
-            else:
+                    time.sleep(3)
+                else:
 
-                sendMessageToClients(f"0Pecas nao casam!|",self.clients)
-                
-                time.sleep(3)
+                    sendMessageToClients(f"0Pecas nao casam!|",self)
+                    
+                    time.sleep(3)
 
-                fechaPeca(self.tabuleiro, i1, j1)
-                fechaPeca(self.tabuleiro, i2, j2)
-                self.turn = (self.turn + 1) % self.nJogadores
+                    fechaPeca(self.tabuleiro, i1, j1)
+                    fechaPeca(self.tabuleiro, i2, j2)
+                    self.turn = (self.turn + 1) % self.nJogadores
 
         # Verificar o vencedor, imprimir e resetar
         pontuacaoMaxima = max(self.placar)
         vencedores = []
-        for i in range(0, self.nJogadores):
+        for i in range(len(self.placar)):
 
             if self.placar[i] == pontuacaoMaxima:
-                vencedores.append(i)
+                vencedores.append(self.ids[i] + 1)
 
         if len(vencedores) > 1:
             winners = ""
             for i in vencedores:
-                winners += str(i + 1) + " "
-            sendMessageToClients(f"0Houve empate entre os jogadores {winners}\n|",self.clients)
+                winners += str(i) + " "
+            sendMessageToClients(f"0Houve empate entre os jogadores {winners}\n|",self)
         else:
-            sendMessageToClients(f"0Jogador {vencedores[0] + 1} foi o vencedor!|",self.clients)
+            sendMessageToClients(f"0Jogador {vencedores[0]} foi o vencedor!|",self)
         time.sleep(3)
         print("Jogo finalizado")
-        sendMessageToClients(f"4|",self.clients)
         self.reset()
         receive(self.socket,self)
 
 # Função padrão que manda uma mensagem para todos os clientes
-def sendMessageToClients(message,clients):
-    for client in clients:
+def sendMessageToClients(message,game: gameInstance,socketArray = []):
+    if len(socketArray) == 0:
+        socketArray = game.clients
+    for client in socketArray:
         try:
             client.send(message.encode("utf-8"))
         except:
@@ -246,39 +261,57 @@ def clientThread(conn:socket.socket, game: gameInstance):
         try:
             message = conn.recv(1024)
             if not message:
-                break
+                try:
+                    conn.send()
+                except:
+                    if conn in game.clients:
+                        with game.lock:
+                            game.clients.remove(conn)
+                            game.ids.remove(game.ids[connIndex])
+                            game.nJogadores -= 1
+                            print(f"Jogador {clientId+1} desconectou")
+                            if game.gameState == 1:
+                                game.placar.pop(connIndex)
+                                game.move = [-10,-10]
+                                if game.turn == game.nJogadores:
+                                    game.turn = 0
+
+                        break
             if(game.gameState == 0):
                 if message != "":
                     message_to_send = f"0Jogador {clientId+1}: {message.decode('utf-8')}|"
-                    sendMessageToClients(message_to_send,game.clients)
+                    sendMessageToClients(message_to_send,game)
             else:
-                move = message.decode('utf-8').split(' ')
-                if(game.turn == clientId and len(move) > 1):
-                    game.move = message.decode('utf-8').split(' ')
-                else:
-                    conn.send("0Não é sua vez|".encode('utf-8'))
+                game.move = message.decode('utf-8').split(' ')
 
         except:
             if conn in game.clients:
-                game.clients.remove(conn)
-                sendMessageToClients(f"0Jogador {clientId} Deixou o jogo!\nAguardando conexões... {len(game.clients)}/{game.nJogadores}|",game.clients)
-                game.ids.remove(clientId)      
-            break
+                with game.lock:
+                    game.clients.remove(conn)
+                    game.ids.remove(game.ids[connIndex])
+                    game.nJogadores -= 1
+                    print(f"Jogador {clientId+1} desconectou")
+                    if game.gameState == 1:
+                        game.placar.pop(connIndex)
+                        game.move = [-10,-10]
+                        if game.turn == game.nJogadores:
+                            game.turn = 0
+                break
 
 #Função que aguarda a conexão dos clientes e, quando todos se conectarem, inicia o jogo
 def receive(server : socket.socket, game: gameInstance):
     while len(game.clients) < game.nJogadores:
         print(f"Aguardando conexões... {len(game.clients)}/{game.nJogadores}")
-        sendMessageToClients(f"0Aguardando conexões... {len(game.clients)}/{game.nJogadores}|",game.clients)
+        sendMessageToClients(f"0Aguardando conexões... {len(game.clients)}/{game.nJogadores}|",game)
         conn, address = server.accept()
         game.clients.append(conn)
         game.ids.append(len(game.clients)-1)
         print(f"Conectado com {address}\nId: {len(game.clients)-1}")
-        sendMessageToClients(f"0Jogador {game.ids[len(game.ids)-1]+1} entrou no jogo!|",game.clients)
+        sendMessageToClients(f"0Jogador {game.ids[len(game.ids)-1]+1} entrou no jogo!|",game)
         thread = threading.Thread(target=clientThread, args=(conn,game))
         thread.start()
     print("Todos os jogadores conectados!\nIniciando jogo...")
-    sendMessageToClients("0Todos os jogadores conectados!\nIniciando jogo...|",game.clients)
+    sendMessageToClients("0Todos os jogadores conectados!\nIniciando jogo...|",game)
     time.sleep(3)
     game.play()
     

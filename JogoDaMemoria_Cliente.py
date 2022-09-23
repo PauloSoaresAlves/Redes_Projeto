@@ -69,26 +69,26 @@ def imprimeTabuleiro(tabuleiro):
 ##
 
 # Imprime o placar atual.
-def imprimePlacar(placar):
+def imprimePlacar(placar,jogadores):
 
     nJogadores = len(placar)
 
     print("Placar:")
     print("---------------------")
     for i in range(0, nJogadores):
-        print ("Jogador {0}: {1:2d}".format(i + 1, placar[i]))
+        print ("Jogador {0}: {1:2d}".format(jogadores[i]+1, placar[i]))
 
 ##
 # Funcoes de interacao com o usuario
 #
 
 # Imprime informacoes basicas sobre o estado atual da partida.
-def imprimeStatus(tabuleiro, placar, vez):
+def imprimeStatus(tabuleiro, placar, vez, jogadores):
 
         imprimeTabuleiro(tabuleiro)
         sys.stdout.write('\n')
 
-        imprimePlacar(placar)
+        imprimePlacar(placar,jogadores)
         sys.stdout.write('\n')
         sys.stdout.write('\n')
 
@@ -141,7 +141,8 @@ class client_status():
         self.tabuleiro = []
         self.placar = []
         self.myId = 0
-        self.terminate=False      
+        self.terminate=False  
+        self.players = []    
     
 #Função que lida com a entrada do usuário e o envio de mensagens para o servidor
 #Thread que fica rodando em paralelo com a thread de recebimento de mensagens
@@ -205,7 +206,8 @@ while True:
                             clientInfo.tabuleiro = json_message["tabuleiro"]
                             clientInfo.placar = json_message["placar"]
                             clientInfo.turn = int(json_message["turn"])
-                            imprimeStatus(clientInfo.tabuleiro,clientInfo.placar, clientInfo.turn)
+                            clientInfo.players = json_message["players"]
+                            imprimeStatus(clientInfo.tabuleiro,clientInfo.placar, clientInfo.turn, clientInfo.players)
                         elif data[0] == "2":
                             clientInfo.gameStarted = True
                         elif data[0] == "3":
