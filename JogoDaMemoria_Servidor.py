@@ -138,6 +138,7 @@ class gameInstance():
     #3 - Mensagem para receber o id do cliente
     #4 - Mensagem para finalizar o jogo
     def play(self):
+        self.nJogadores = self.maxJogadores
         self.gameState = 1
         totalDePares = self.checkerSize**2 / 2
         paresEncontrados = 0
@@ -300,9 +301,9 @@ def clientThread(conn:socket.socket, game: gameInstance):
 
 #Função que aguarda a conexão dos clientes e, quando todos se conectarem, inicia o jogo
 def receive(server : socket.socket, game: gameInstance):
-    while len(game.clients) < game.nJogadores:
-        print(f"Aguardando conexões... {len(game.clients)}/{game.nJogadores}")
-        sendMessageToClients(f"0Aguardando conexões... {len(game.clients)}/{game.nJogadores}|",game)
+    while len(game.clients) < game.maxJogadores:
+        print(f"Aguardando conexões... {len(game.clients)}/{game.maxJogadores}")
+        sendMessageToClients(f"0Aguardando conexões... {len(game.clients)}/{game.maxJogadores}|",game)
         conn, address = server.accept()
         game.clients.append(conn)
         game.ids.append(len(game.clients)-1)
