@@ -109,7 +109,7 @@ class gameInstance():
         self.maxJogadores = nJogadores
         self.clients = []
         self.ids = []
-        self.lock = threading.Lock()
+        self.lock = threading.Lock() #lock da classe
         self.tabuleiro = novoTabuleiro(dim)
         self.placar = novoPlacar(nJogadores)
         self.gameState = 0 #gameState 1 = rodando, 0 = parado
@@ -244,6 +244,7 @@ class gameInstance():
         receive(self.socket,self)
 
 # Função padrão que manda uma mensagem para todos os clientes
+# Pega o array de clientes da instancia do jogo, porém pode mandar para um array de clients passado como parâmetro
 def sendMessageToClients(message,game: gameInstance,socketArray = []):
     if len(socketArray) == 0:
         socketArray = game.clients
@@ -254,18 +255,19 @@ def sendMessageToClients(message,game: gameInstance,socketArray = []):
             pass
 
 # Função que recebe a mensagem do cliente e retorna a para todos os outros clientes
+# Caso o cliente caia, é responsável pela sua remoção do jogo
 def clientThread(conn:socket.socket, game: gameInstance):
-    connIndex = game.clients.index(conn)
-    clientId = game.ids[connIndex]
+    connIndex = game.clients.index(conn) #Pega o index do cliente na lista de clientes
+    clientId = game.ids[connIndex] #Pega o id do cliente na lista de ids
     conn.send(f"3{clientId}|".encode("utf-8"))
     conn.send(f"0Bem vindo ao jogo, jogador {clientId+1}!\nSinta-se a vontade para usar o chat enquanto os jogadores se conectam!|".encode('utf-8'))
     while conn in game.clients:
         try:
             message = conn.recv(1024)
             if not message:
-                try:
+                try: #tenta realizar uma comunicação com o cliente para ter certeza que não há mais conexão
                     conn.send()
-                except:
+                except: #se não conseguir, remove o cliente da lista de clientes
                     if conn in game.clients:
                         with game.lock:
                             connIndex = game.clients.index(conn)
@@ -276,7 +278,7 @@ def clientThread(conn:socket.socket, game: gameInstance):
                             sendMessageToClients(f"0Jogador {clientId+1} desconectou|",game)
                             if game.gameState == 1:
                                 game.placar.pop(connIndex)
-                                game.move = [-10,-10]
+                                game.move = [-10,-10] #libera a espera ocupada
                                 if game.turn == game.nJogadores:
                                     game.turn = 0
 
@@ -288,7 +290,7 @@ def clientThread(conn:socket.socket, game: gameInstance):
             else:
                 game.move = message.decode('utf-8').split(' ')
 
-        except:
+        except: #se não conseguir receber a mensagem, remove o cliente da lista de clientes
             if conn in game.clients:
                 with game.lock:
                     connIndex = game.clients.index(conn)
@@ -299,13 +301,14 @@ def clientThread(conn:socket.socket, game: gameInstance):
                     sendMessageToClients(f"0Jogador {clientId+1} desconectou|",game)
                     if game.gameState == 1:
                         game.placar.pop(connIndex)
-                        game.move = [-10,-10]
+                        game.move = [-10,-10] #libera a espera ocupada
                         if game.turn == game.nJogadores:
                             game.turn = 0
 
                 break
 
 #Função que aguarda a conexão dos clientes e, quando todos se conectarem, inicia o jogo
+#Ao fim do jogo, ou no caso de todos os jogadores se desconectarem, a função é chamada novamente
 def receive(server : socket.socket, game: gameInstance):
     count = 0
     while len(game.clients) < game.maxJogadores:
@@ -337,7 +340,7 @@ def main():
         dim = int(input("Digite o tamanho do tabuleiro (Menor que 10, maior que 2 e par!): "))
 
 
-    # Numero de jogadores
+    # Numero de jogadores (Permite uma pessoa jogador sozinho)
     nJogadores = int(input("Digite o numero de jogadores (Min: 1 jogador): "))
     while(nJogadores < 1):
         print("Numero invalido!")

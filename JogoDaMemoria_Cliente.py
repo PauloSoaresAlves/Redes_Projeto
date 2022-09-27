@@ -68,6 +68,8 @@ def imprimeTabuleiro(tabuleiro):
 # Funcoes de manipulacao do placar
 ##
 
+#<<MODIFICADA>>
+# Recebe o placar e os IDS dos jogadores, para lidar com o fato de que jogadores podem ter ids diferentes dos indices do placar
 # Imprime o placar atual.
 def imprimePlacar(placar,jogadores):
 
@@ -80,8 +82,11 @@ def imprimePlacar(placar,jogadores):
 
 ##
 # Funcoes de interacao com o usuario
-#
+##
 
+
+#<<MODIFICADA>>
+# Recebe o placar e os IDS dos jogadores, para lidar com o fato de que jogadores podem ter ids diferentes dos indices do placar
 # Imprime informacoes basicas sobre o estado atual da partida.
 def imprimeStatus(tabuleiro, placar, vez, jogadores):
 
@@ -150,8 +155,12 @@ class client_status():
 def client_send(tcp_client, clientInfo: client_status):
     while not clientInfo.terminate:
         message = f'{input("")}'
+
+        #chat normal
         if not clientInfo.gameStarted:  
             tcp_client.send(message.encode('utf-8'))
+
+        #jogo
         elif clientInfo.gameStarted and clientInfo.turn == clientInfo.myId:
             coordenadas = leCoordenada(len(clientInfo.tabuleiro),message)
             if(not coordenadas):
