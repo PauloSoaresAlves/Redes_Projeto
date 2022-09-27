@@ -142,7 +142,7 @@ class gameInstance():
         totalDePares = self.checkerSize**2 / 2
         paresEncontrados = 0
         self.turn = 0
-        while paresEncontrados < totalDePares:
+        while paresEncontrados < totalDePares and self.nJogadores > 0:
 
             #Envia mensagem para o cliente atual que o jogo começou
             sendMessageToClients(f"2|",self)
@@ -229,7 +229,7 @@ class gameInstance():
             if self.placar[i] == pontuacaoMaxima:
                 vencedores.append(self.ids[i] + 1)
 
-        if len(vencedores) > 1:
+        if len(vencedores) > 1 and self.nJogadores > 1:
             winners = ""
             for i in vencedores:
                 winners += str(i) + " "
