@@ -223,20 +223,21 @@ class gameInstance():
                     self.turn = (self.turn + 1) % self.nJogadores
 
         # Verificar o vencedor, imprimir e resetar
-        pontuacaoMaxima = max(self.placar)
-        vencedores = []
-        for i in range(len(self.placar)):
+        if self.nJogadores > 0:
+            pontuacaoMaxima = max(self.placar)
+            vencedores = []
+            for i in range(len(self.placar)):
 
-            if self.placar[i] == pontuacaoMaxima:
-                vencedores.append(self.ids[i] + 1)
+                if self.placar[i] == pontuacaoMaxima:
+                    vencedores.append(self.ids[i] + 1)
 
-        if len(vencedores) > 1 and self.nJogadores > 1:
-            winners = ""
-            for i in vencedores:
-                winners += str(i) + " "
-            sendMessageToClients(f"0Houve empate entre os jogadores {winners}\n|",self)
-        else:
-            sendMessageToClients(f"0Jogador {vencedores[0]} foi o vencedor!|",self)
+            if len(vencedores) > 1:
+                winners = ""
+                for i in vencedores:
+                    winners += str(i) + " "
+                sendMessageToClients(f"0Houve empate entre os jogadores {winners}\n|",self)
+            else:
+                sendMessageToClients(f"0Jogador {vencedores[0]} foi o vencedor!|",self)
         time.sleep(3)
         print("Jogo finalizado")
         self.reset()
@@ -267,10 +268,12 @@ def clientThread(conn:socket.socket, game: gameInstance):
                 except:
                     if conn in game.clients:
                         with game.lock:
+                            connIndex = game.clients.index(conn)
+                            game.ids.remove(clientId)
                             game.clients.remove(conn)
-                            game.ids.remove(game.ids[connIndex])
                             game.nJogadores -= 1
                             print(f"Jogador {clientId+1} desconectou")
+                            sendMessageToClients(f"0Jogador {clientId+1} desconectou|",game)
                             if game.gameState == 1:
                                 game.placar.pop(connIndex)
                                 game.move = [-10,-10]
@@ -288,27 +291,32 @@ def clientThread(conn:socket.socket, game: gameInstance):
         except:
             if conn in game.clients:
                 with game.lock:
+                    connIndex = game.clients.index(conn)
+                    game.ids.remove(clientId)
                     game.clients.remove(conn)
-                    game.ids.remove(game.ids[connIndex])
                     game.nJogadores -= 1
                     print(f"Jogador {clientId+1} desconectou")
+                    sendMessageToClients(f"0Jogador {clientId+1} desconectou|",game)
                     if game.gameState == 1:
                         game.placar.pop(connIndex)
                         game.move = [-10,-10]
                         if game.turn == game.nJogadores:
                             game.turn = 0
+
                 break
 
 #Função que aguarda a conexão dos clientes e, quando todos se conectarem, inicia o jogo
 def receive(server : socket.socket, game: gameInstance):
+    count = 0
     while len(game.clients) < game.maxJogadores:
         print(f"Aguardando conexões... {len(game.clients)}/{game.maxJogadores}")
         sendMessageToClients(f"0Aguardando conexões... {len(game.clients)}/{game.maxJogadores}|",game)
         conn, address = server.accept()
         game.clients.append(conn)
-        game.ids.append(len(game.clients)-1)
-        print(f"Conectado com {address}\nId: {len(game.clients)-1}")
-        sendMessageToClients(f"0Jogador {game.ids[len(game.ids)-1]+1} entrou no jogo!|",game)
+        game.ids.append(count)
+        count += 1
+        print(f"Conectado com {address}\nId: {count}")
+        sendMessageToClients(f"0Jogador {count} entrou no jogo!|",game)
         thread = threading.Thread(target=clientThread, args=(conn,game))
         thread.start()
     print("Todos os jogadores conectados!\nIniciando jogo...")
